@@ -4,10 +4,10 @@ import { supabase } from "../supabase.js";
 export default function Dashboard() {
   const [leMieCase, setLeMieCase] = useState([]);
   const [tuttePrenotazioni, setTuttePrenotazioni] = useState([]);
-  const [nomeCasa, setNomeCasa] = useState("");
   const [casaSelezionata, setCasaSelezionata] = useState(null);
+  const [nomeCasa, setNomeCasa] = useState("");
 
-  // Stati per Dettaglio (Ripresi dal tuo codice originale)
+  // Stati Dettaglio Casa
   const [prenotazioni, setPrenotazioni] = useState([]);
   const [tariffe, setTariffe] = useState([]);
   const [nomeCliente, setNomeCliente] = useState("");
@@ -43,12 +43,6 @@ export default function Dashboard() {
     setTariffe(t || []);
   };
 
-  const handleAggiungiCasa = async (e) => {
-    e.preventDefault();
-    await supabase.from('case').insert([{ nome: nomeCasa }]);
-    setNomeCasa(""); scaricaCase();
-  };
-
   const handleAggiungiPrenotazione = async (e) => {
     e.preventDefault();
     await supabase.from('prenotazioni').insert([{
@@ -60,143 +54,98 @@ export default function Dashboard() {
     apriCasa(casaSelezionata); scaricaTuttePrenotazioni();
   };
 
-  const handleAggiungiTariffa = async (e) => {
-    e.preventDefault();
-    await supabase.from('tariffe').insert([{
-      casa_id: casaSelezionata.id, data_inizio: inizioTariffa, data_fine: fineTariffa, prezzo: parseFloat(prezzoTariffa)
-    }]);
-    setInizioTariffa(""); setFineTariffa(""); setPrezzoTariffa(""); apriCasa(casaSelezionata);
-  };
-
-  const handleAggiornaFoto = async (e) => {
-    e.preventDefault();
-    await supabase.from('case').update({ foto_url: nuovaFotoUrl }).eq('id', casaSelezionata.id);
-    setNuovaFotoUrl("");
-    const nuovaCasa = { ...casaSelezionata, foto_url: nuovaFotoUrl };
-    setCasaSelezionata(nuovaCasa);
-    scaricaCase();
-  };
-
-  // Calendario 30gg (Logica originale)
+  // LOGICA CALENDARIO A TABELLA SETTIMANALE
   const oggi = new Date();
-  const prossimi30Giorni = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(oggi); d.setDate(oggi.getDate() + i);
-    const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0');
-    return { str: `${y}-${m}-${day}`, label: `${day}/${m}` };
+  const giorniCalendario = Array.from({ length: 28 }, (_, i) => {
+    const d = new Date(oggi);
+    d.setDate(oggi.getDate() + i);
+    return { str: d.toISOString().split('T')[0], label: d.getDate(), mese: d.getMonth() + 1 };
   });
 
   return (
-    <div style={{ background: "#F8FAFC", minHeight: "100vh", fontFamily: "sans-serif", paddingBottom: 50 }}>
+    <div style={{ background: "#F8FAFC", minHeight: "100vh", fontFamily: "sans-serif", paddingBottom: 40 }}>
       {/* NAVBAR */}
-      <div style={{ background: "white", padding: "15px 30px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", position: "sticky", top: 0, zIndex: 100 }}>
-        <span onClick={() => setCasaSelezionata(null)} style={{ cursor: "pointer", fontWeight: "800", color: "#0EA5E9", fontSize: 24, letterSpacing: "-1px" }}>🌊 MareApp</span>
-        <button onClick={() => supabase.auth.signOut()} style={{ background: "#FEE2E2", color: "#EF4444", border: "none", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: "bold" }}>Esci</button>
-      </div>
+      <nav style={{ background: "white", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", position: "sticky", top: 0, zIndex: 100 }}>
+        <b style={{ color: "#0EA5E9", fontSize: "20px" }} onClick={() => setCasaSelezionata(null)}>🌊 MareApp</b>
+        <button onClick={() => supabase.auth.signOut()} style={{ background: "#EF4444", color: "white", border: "none", padding: "6px 12px", borderRadius: 8, fontSize: "12px" }}>Esci</button>
+      </nav>
 
-      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px" }}>
+      <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "15px" }}>
         {!casaSelezionata ? (
           <>
-            {/* CALENDARIO GANTT */}
-            <div style={{ background: "white", padding: 25, borderRadius: 20, boxShadow: "0 4px 15px rgba(0,0,0,0.05)", marginBottom: 30, overflowX: "auto" }}>
-              <h2 style={{ color: "#1E293B", marginTop: 0, marginBottom: 20, fontSize: 18, display: "flex", alignItems: "center", gap: 10 }}>🗓️ Stato Occupazione</h2>
-              <div style={{ minWidth: "850px" }}>
-                <div style={{ display: "flex", marginBottom: 10 }}>
-                  <div style={{ width: 160 }}></div>
-                  {prossimi30Giorni.map(g => <div key={g.str} style={{ width: 32, textAlign: "center", fontSize: 11, color: "#94A3B8", fontWeight: "600" }}>{g.label}</div>)}
+            <h2 style={{ fontSize: "18px", color: "#1E293B", marginBottom: "15px" }}>🗓️ Occupazione Case</h2>
+            
+            {/* TABELLA CALENDARIO RESPONSIVE */}
+            {leMieCase.map(casa => (
+              <div key={casa.id} style={{ background: "white", padding: "15px", borderRadius: "16px", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", marginBottom: "15px" }}>
+                <b style={{ fontSize: "14px", color: "#475569" }}>{casa.nome}</b>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "5px", marginTop: "10px" }}>
+                  {giorniCalendario.map(g => {
+                    const pren = tuttePrenotazioni.find(p => p.casa_id === casa.id && g.str >= p.data_arrivo && g.str < p.data_partenza);
+                    return (
+                      <div key={g.str} style={{ 
+                        height: "35px", borderRadius: "8px", fontSize: "10px", fontWeight: "bold",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: pren ? "#FDA4AF" : "#CCFBF1",
+                        border: pren ? "1px solid #F43F5E" : "1px solid #2DD4BF",
+                        color: pren ? "#991B1B" : "#0D9488"
+                      }}>
+                        {g.label}
+                      </div>
+                    );
+                  })}
                 </div>
-                {leMieCase.map(casa => (
-                  <div key={casa.id} style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ width: 160, fontWeight: "bold", color: "#334155", fontSize: 13 }}>{casa.nome}</div>
-                    {prossimi30Giorni.map(g => {
-                      const pren = tuttePrenotazioni.find(p => p.casa_id === casa.id && g.str >= p.data_arrivo && g.str < p.data_partenza);
-                      return <div key={g.str} style={{ width: 30, height: 22, margin: "1px", borderRadius: 5, background: pren ? "#FDA4AF" : "#CCFBF1", border: pren ? "1px solid #F43F5E" : "1px solid #2DD4BF" }}></div>
-                    })}
-                  </div>
-                ))}
               </div>
-            </div>
+            ))}
 
-            {/* FORM AGGIUNGI CASA */}
-            <div style={{ background: "white", padding: 25, borderRadius: 20, boxShadow: "0 4px 15px rgba(0,0,0,0.05)", marginBottom: 30 }}>
-              <h2 style={{ color: "#0EA5E9", marginTop: 0, marginBottom: 15, fontSize: 18 }}>🏠 Le tue proprietà</h2>
-              <form onSubmit={handleAggiungiCasa} style={{ display: "flex", gap: 15 }}>
-                <input type="text" required placeholder="Nome nuova casa..." value={nomeCasa} onChange={(e) => setNomeCasa(e.target.value)} style={{ flex: 1, padding: "12px 15px", borderRadius: 12, border: "2px solid #F1F5F9", outline: "none" }} />
-                <button type="submit" style={{ background: "#0EA5E9", color: "white", padding: "0 25px", borderRadius: 12, border: "none", cursor: "pointer", fontWeight: "bold" }}>+ Aggiungi</button>
-              </form>
-            </div>
-
-            {/* GRIGLIA CASE */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-              {leMieCase.map((casa) => (
-                <div key={casa.id} onClick={() => apriCasa(casa)} style={{ background: "white", borderRadius: 20, overflow: "hidden", boxShadow: "0 4px 15px rgba(0,0,0,0.05)", cursor: "pointer" }}>
-                  <div style={{ height: 140, background: casa.foto_url ? `url(${casa.foto_url}) center/cover` : "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", color: "#94A3B8" }}>
-                    {!casa.foto_url && "Nessuna foto"}
-                  </div>
-                  <div style={{ padding: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <h3 style={{ margin: 0, color: "#1E293B" }}>{casa.nome}</h3>
-                    <span style={{ color: "#0EA5E9", fontWeight: "bold" }}>Gestisci →</span>
-                  </div>
+            <h2 style={{ fontSize: "18px", color: "#1E293B", marginTop: "30px", marginBottom: "15px" }}>🏠 Le tue strutture</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "15px" }}>
+              {leMieCase.map(casa => (
+                <div key={casa.id} onClick={() => apriCasa(casa)} style={{ background: "white", borderRadius: "15px", overflow: "hidden", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", textAlign: "center", borderBottom: "4px solid #0EA5E9" }}>
+                   <div style={{height: "80px", background: casa.foto_url ? `url(${casa.foto_url}) center/cover` : "#E2E8F0"}}></div>
+                   <div style={{padding: "10px", fontSize: "14px", fontWeight: "bold"}}>{casa.nome}</div>
                 </div>
               ))}
+              <div style={{ background: "#F1F5F9", borderRadius: "15px", border: "2px dashed #CBD5E1", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "110px" }}>
+                 <input type="text" placeholder="Nuova..." value={nomeCasa} onChange={e=>setNomeCasa(e.target.value)} style={{width: "70%", border: "none", background: "transparent", fontSize: "12px"}} />
+                 <button onClick={handleAggiungiCasa} style={{background: "#0EA5E9", color: "white", border: "none", borderRadius: "50%", width: "25px", height: "25px"}}>+</button>
+              </div>
             </div>
           </>
         ) : (
-          /* DETTAGLIO CASA (TUTTE LE TUE FUNZIONI) */
-          <div>
-            <button onClick={() => setCasaSelezionata(null)} style={{ background: "none", border: "none", color: "#64748B", fontWeight: "bold", cursor: "pointer", marginBottom: 20 }}>← Torna alla Home</button>
-            <h1 style={{ color: "#1E293B", marginBottom: 30 }}>{casaSelezionata.nome}</h1>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 25 }}>
+          /* DETTAGLIO CASA COMPLETO */
+          <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <button onClick={() => setCasaSelezionata(null)} style={{ background: "#E2E8F0", border: "none", padding: "10px", borderRadius: "10px", alignSelf: "flex-start" }}>← Torna alle Case</button>
+            
+            <div style={{ background: "white", padding: "20px", borderRadius: "20px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)" }}>
+              <h2 style={{ marginTop: 0 }}>{casaSelezionata.nome}</h2>
               
-              {/* COLONNA SINISTRA: PRENOTAZIONI */}
-              <div>
-                <div style={{ background: "white", padding: 25, borderRadius: 24, boxShadow: "0 4px 15px rgba(0,0,0,0.05)", marginBottom: 25 }}>
-                  <h3 style={{ color: "#10B981", marginTop: 0 }}>Nuova Prenotazione</h3>
-                  <form onSubmit={handleAggiungiPrenotazione} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 15 }}>
-                    <input type="text" placeholder="Nome Ospite" required value={nomeCliente} onChange={e=>setNomeCliente(e.target.value)} style={{ gridColumn: "span 2", padding: 12, borderRadius: 10, border: "1px solid #E2E8F0" }} />
-                    <input type="date" required value={dataArrivo} onChange={e=>setDataArrivo(e.target.value)} style={{ padding: 12, borderRadius: 10, border: "1px solid #E2E8F0" }} />
-                    <input type="date" required value={dataPartenza} onChange={e=>setDataPartenza(e.target.value)} style={{ padding: 12, borderRadius: 10, border: "1px solid #E2E8F0" }} />
-                    <input type="number" placeholder="Persone" value={nPersone} onChange={e=>setNPersone(e.target.value)} style={{ padding: 12, borderRadius: 10, border: "1px solid #E2E8F0" }} />
-                    <input type="number" placeholder="Prezzo Totale €" value={prezzo} onChange={e=>setPrezzo(e.target.value)} style={{ padding: 12, borderRadius: 10, border: "1px solid #E2E8F0" }} />
-                    <textarea placeholder="Note..." value={note} onChange={e=>setNote(e.target.value)} style={{ gridColumn: "span 2", padding: 12, borderRadius: 10, border: "1px solid #E2E8F0", minHeight: 60 }} />
-                    <button type="submit" style={{ gridColumn: "span 2", background: "#10B981", color: "white", padding: 15, borderRadius: 12, border: "none", fontWeight: "bold", cursor: "pointer" }}>Salva Prenotazione</button>
-                  </form>
+              <form onSubmit={handleAggiungiPrenotazione} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <input type="text" placeholder="Nome Cliente" required value={nomeCliente} onChange={e=>setNomeCliente(e.target.value)} style={{ padding: "12px", borderRadius: "10px", border: "1px solid #E2E8F0" }} />
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <input type="date" required value={dataArrivo} onChange={e=>setDataArrivo(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #E2E8F0" }} />
+                  <input type="date" required value={dataPartenza} onChange={e=>setDataPartenza(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #E2E8F0" }} />
                 </div>
-
-                <h3 style={{ color: "#1E293B" }}>Calendario Ospiti</h3>
-                {prenotazioni.map(p => (
-                  <div key={p.id} style={{ background: "white", padding: 20, borderRadius: 15, marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontWeight: "bold", fontSize: 16 }}>{p.nome_cliente}</div>
-                      <div style={{ fontSize: 13, color: "#64748B" }}>{p.data_arrivo} / {p.data_partenza}</div>
-                    </div>
-                    <div style={{ fontWeight: "bold", color: "#10B981" }}>€{p.prezzo}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* COLONNA DESTRA: FOTO E TARIFFE */}
-              <div>
-                <div style={{ background: "white", padding: 25, borderRadius: 24, boxShadow: "0 4px 15px rgba(0,0,0,0.05)", marginBottom: 25 }}>
-                  <h3 style={{ color: "#F59E0B", marginTop: 0 }}>Foto Copertina</h3>
-                  <form onSubmit={handleAggiornaFoto} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <input type="text" placeholder="Link immagine..." value={nuovaFotoUrl} onChange={e=>setNuovaFotoUrl(e.target.value)} style={{ padding: 10, borderRadius: 8, border: "1px solid #E2E8F0" }} />
-                    <button type="submit" style={{ background: "#F59E0B", color: "white", padding: 10, borderRadius: 8, border: "none", fontWeight: "bold" }}>Aggiorna</button>
-                  </form>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <input type="number" placeholder="Persone" value={nPersone} onChange={e=>setNPersone(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #E2E8F0" }} />
+                  <input type="number" placeholder="Prezzo Tot €" value={prezzo} onChange={e=>setPrezzo(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #E2E8F0" }} />
                 </div>
-
-                <div style={{ background: "white", padding: 25, borderRadius: 24, boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-                  <h3 style={{ color: "#8B5CF6", marginTop: 0 }}>Tariffe</h3>
-                  <form onSubmit={handleAggiungiTariffa} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <input type="date" value={inizioTariffa} onChange={e=>setInizioTariffa(e.target.value)} style={{ padding: 8, borderRadius: 8, border: "1px solid #E2E8F0" }} />
-                    <input type="date" value={fineTariffa} onChange={e=>setFineTariffa(e.target.value)} style={{ padding: 8, borderRadius: 8, border: "1px solid #E2E8F0" }} />
-                    <input type="number" placeholder="€ al giorno" value={prezzoTariffa} onChange={e=>setPrezzoTariffa(e.target.value)} style={{ padding: 8, borderRadius: 8, border: "1px solid #E2E8F0" }} />
-                    <button type="submit" style={{ background: "#8B5CF6", color: "white", padding: 10, borderRadius: 8, border: "none", fontWeight: "bold" }}>Aggiungi Tariffa</button>
-                  </form>
-                </div>
-              </div>
-
+                <textarea placeholder="Note (codici, biancheria...)" value={note} onChange={e=>setNote(e.target.value)} style={{ padding: "12px", borderRadius: "10px", border: "1px solid #E2E8F0", minHeight: "80px" }} />
+                <button type="submit" style={{ background: "#0EA5E9", color: "white", padding: "15px", borderRadius: "12px", border: "none", fontWeight: "bold" }}>Salva Prenotazione</button>
+              </form>
             </div>
+
+            {/* LISTA PRENOTAZIONI ESISTENTI */}
+            <h3 style={{fontSize: "16px", color: "#475569"}}>Ospiti in arrivo</h3>
+            {prenotazioni.map(p => (
+              <div key={p.id} style={{ background: "white", padding: "15px", borderRadius: "15px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 2px 4px rgba(0,0,0,0.03)" }}>
+                <div>
+                  <b style={{fontSize: "15px"}}>{p.nome_cliente}</b>
+                  <div style={{fontSize: "12px", color: "#94A3B8"}}>{p.data_arrivo} ➔ {p.data_partenza}</div>
+                </div>
+                <div style={{fontWeight: "bold", color: "#10B981"}}>€{p.prezzo}</div>
+              </div>
+            ))}
           </div>
         )}
       </div>
